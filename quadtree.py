@@ -1,259 +1,155 @@
-"""
-This bit explains the use of quadtree with a small demo
-
-Run this to see how it works with Python 3.13.2 + pygame-ce 2.5.3
-"""
-
 import pygame
-from typing import Optional
-import random  # for demo
+import random
+import time
+from typing import List, Tuple, Optional
 
-class Actor:
-    """
-    What is this?
-    This represent game actors in a room
 
-    Update the shape however you need it to be later
+# Updated SomeObjectWithArea class
+class SomeObjectWithArea:
+    def __init__(self, rect: pygame.FRect, vVel: Tuple[float, float], color: Tuple[int, int, int]) -> None:
+        self.rect: pygame.FRect = rect  # rect holds both position and size
+        self.vVel: pygame.Vector2 = pygame.Vector2(vVel)  # Velocity remains a Vector2
+        self.color: Tuple[int, int, int] = color
 
-    This is the minimal example, that they MUST have rect and id!
-    """
-    def __init__(self, actor_id: int, rect: pygame.FRect):
-        self.id = actor_id
-        self.rect = rect
-        self.vx = random.uniform(-2, 2)  # Random velocity X
-        self.vy = random.uniform(-2, 2)  # Random velocity Y
+class StaticQuadTree:
+    MAX_DEPTH: int = 8
 
-    def move(self):
-        self.rect.x += self.vx
-        self.rect.y += self.vy
+    def __init__(self, rect: pygame.FRect, nDepth: int = 0) -> None:
+        self.depth: int = nDepth
+        self.resize(rect)
 
-        # Bounce off edges
-        if self.rect.left <= 0 or self.rect.right >= WIDTH:
-            self.vx *= -1
-        if self.rect.top <= 0 or self.rect.bottom >= HEIGHT:
-            self.vy *= -1
-
-# Cache connections between actors and their quad room
-actor_id_to_quad_instance_cache: dict[int, "Quadtree"] = {}
-
-# Const
-MAX_QUADTREE_SUB_DIVISION_DEPTH = 8
-QUADTREE_NUMBER_OF_KIDS = 4
-
-class Quadtree:
-    """
-    What is this?
-    You want to use this to check if 1 rect collides with another rect in a finite room, given that there are many rects
-
-    For example
-    You have a room filled with many walking npc, the player is running around and the camera follows player
-    You want to see which npc collides with camera so you can activate them, else you deactivate the rest
-
-    npcs_list_in_camera = quadtree.search(camera.rect)
-    Then iterate and call each of the npc draw and update
-
-    When you first instance npc, add them to quadtree with its insert method
-
-    If you want to delete something you find? For example
-    You have a moving bullet in a room filled with enemies
-    If you find something that overlap with bullet you want to delete them?
-    Use the remove actor method
-
-    How to handle when npc are moving around?
-    You want to move the npc first, and then you call the quadtree relocate and pass the moved actor inside
-    """
-    def __init__(self, rect: pygame.FRect, depth: int):
-        # My rect
+    def resize(self, rect: pygame.FRect) -> None:
+        self.clear()
         self.rect: pygame.FRect = rect
-
-        # My actors
-        self.actors: list[Actor] = []
-
-        # Keeps track of my depth level, if I'm at max depth I won't make more kids
-        self.depth: int = depth
-
-        # Container to hold my quad kids
-        self.kids: list[Optional[Quadtree]] = [None] * QUADTREE_NUMBER_OF_KIDS
-
-        # I have prepared my quad kids rect for making them later
-        child_width: float = self.rect.width / 2.0
-        child_height: float = self.rect.height / 2.0
-        self.kids_rects: list[pygame.FRect] = [
-            pygame.FRect(
-                (
-                    self.rect.x,
-                    self.rect.y,
-                ),
-                (
-                    child_width,
-                    child_height,
-                ),
-            ),
-            pygame.FRect(
-                (
-                    self.rect.x + child_width,
-                    self.rect.y,
-                ),
-                (
-                    child_width,
-                    child_height,
-                ),
-            ),
-            pygame.FRect(
-                (
-                    self.rect.x,
-                    self.rect.y + child_height,
-                ),
-                (
-                    child_width,
-                    child_height,
-                ),
-            ),
-            pygame.FRect(
-                (
-                    self.rect.x + child_width,
-                    self.rect.y + child_height,
-                ),
-                (
-                    child_width,
-                    child_height,
-                ),
-            ),
+        half_width: float = self.rect.w / 2
+        half_height: float = self.rect.h / 2
+        self.children: List[pygame.FRect] = [
+            pygame.FRect(self.rect.x, self.rect.y, half_width, half_height),  # Top Left
+            pygame.FRect(self.rect.x + half_width, self.rect.y, half_width, half_height),  # Top Right
+            pygame.FRect(self.rect.x, self.rect.y + half_height, half_width, half_height),  # Bottom Left
+            pygame.FRect(self.rect.x + half_width, self.rect.y + half_height, half_width, half_height)  # Bottom Right
         ]
 
-    def insert(self, given_actor: Actor) -> None:
-        # Iter my kids
-        for i in range(QUADTREE_NUMBER_OF_KIDS):
-            kid_rect = self.kids_rects[i]
-            kid = self.kids[i]
-            # Inserted actor falls completely inside one of my kids (not landing and touching kids edges)
-            if kid_rect.contains(given_actor.rect):
-                # Check if I'm not at max depth guard
-                if self.depth + 1 < MAX_QUADTREE_SUB_DIVISION_DEPTH:
-                    # Check if kid is not instanced yet? Make new kid and tell it that its at a lower level + 1
-                    if not kid:
-                        kid = Quadtree(kid_rect, self.depth + 1)
-                        self.kids[i] = kid
-                    # Give the inserted actor into that kid
-                    kid.insert(given_actor)
+    def clear(self) -> None:
+        self.items: List[Tuple[pygame.FRect, SomeObjectWithArea]] = []
+        self.children_quads: Optional[List[Optional[StaticQuadTree]]] = [None] * 4
+
+    def insert(self, item: SomeObjectWithArea, item_rect: pygame.FRect) -> None:
+        for i, child in enumerate(self.children):
+            if child.collidepoint(item_rect.x, item_rect.y):
+                if self.depth + 1 < self.MAX_DEPTH:
+                    if not self.children_quads[i]:
+                        self.children_quads[i] = StaticQuadTree(self.children[i], self.depth + 1)
+                    self.children_quads[i].insert(item, item_rect)
                     return
 
-        # If none of the condition above is true then this actor is mine!
-        self.actors.append(given_actor)
+        self.items.append((item_rect, item))
 
-        # Update cache, bind this inserted actor and myself as instance
-        actor_id_to_quad_instance_cache[given_actor.id] = self
+    def search(self, area: pygame.FRect) -> List[SomeObjectWithArea]:
+        items_in_area: List[SomeObjectWithArea] = []
+        self._search(area, items_in_area)
+        return items_in_area
 
-    def search(self, search_rect: pygame.FRect) -> list:
-        # Prepare the found container
-        found_actors: list[Actor] = []
-        
-        # The quadtree magic that gets you fast collision check!
-        self._search_helper(search_rect, found_actors)
+    def _search(self, area: pygame.FRect, items_in_area: List[SomeObjectWithArea]) -> None:
+        for item_rect, item in self.items:
+            if area.colliderect(item_rect):
+                items_in_area.append(item)
 
-        # Returns all found actors!
-        return found_actors
+        for i, child_quad in enumerate(self.children_quads):
+            if child_quad:
+                if area.contains(self.children[i]):
+                    child_quad._get_all_items(items_in_area)
+                elif self.children[i].colliderect(area):
+                    child_quad._search(area, items_in_area)
 
-    def relocate(self, given_actor: Actor) -> None:
-        # Relocate is just remove and re insert
-        if self._remove_actor(given_actor):
-            self.insert(given_actor)
+    def _get_all_items(self, items_in_area: List[SomeObjectWithArea]) -> None:
+        for item_rect, item in self.items:
+            items_in_area.append(item)
 
-    def _search_helper(self, search_rect: pygame.FRect, found_actors: list[Actor]) -> None:
-        # Iter all actors in me
-        for actor in self.actors:
-            # If the passed in search rect hits one of my actors? Collect them to found container
-            if search_rect.colliderect(actor.rect):
-                found_actors.append(actor)
+        for child_quad in self.children_quads:
+            if child_quad:
+                child_quad._get_all_items(items_in_area)
 
-        # Iter my kids
-        for i in range(QUADTREE_NUMBER_OF_KIDS):
-            kid_rect = self.kids_rects[i]
-            kid = self.kids[i]
-            if kid:
-                # If the given search rect completely engulf this kid? Then batch dump ALL of this kid and its sub kids actors to found container
-                if search_rect.contains(kid_rect):
-                    kid._add_actors(found_actors)
-                # If given search rect hits this kid? Tell it to use search rect to see if some of its owned actors are in it 
-                elif kid_rect.colliderect(search_rect):
-                    kid._search_helper(search_rect, found_actors)
+# Main example demo game class
+class Example_StaticQuadTree:
+    def __init__(self) -> None:
+        pygame.init()
+        self.screen: pygame.Surface = pygame.display.set_mode((320, 180))
+        self.clock: pygame.time.Clock = pygame.time.Clock()
 
-    def _add_actors(self, found_actors: list[Actor]) -> None:
-        # Dump all of my actors in found container
-        for actor in self.actors:
-            found_actors.append(actor)
+        self.fWidth: float = 640.0
+        self.fHeight: float = 360.0
+        self.bUseQuadTree: bool = True
 
-        # Tell my kids to do likewise
-        for kid in self.kids:
-            if kid:
-                kid._add_actors(found_actors)
+        self.world_rect: pygame.FRect = pygame.FRect(0, 0, self.fWidth, self.fHeight)
+        self.treeObjects: StaticQuadTree = StaticQuadTree(self.world_rect)
+        self.vecObjects: List[SomeObjectWithArea] = []
 
-    def _remove_actor(self, to_be_deleted_actor: Actor) -> bool:
-        # Delete quad first from cache (this uses pop so that if not found it wont throw)
-        quadtree = actor_id_to_quad_instance_cache.pop(to_be_deleted_actor.id, None)
-        # If actor in cache and in quad, delete it
-        if quadtree and to_be_deleted_actor in quadtree.actors:
-            quadtree.actors.remove(to_be_deleted_actor)
-            return True
-        return False
-    
-# Small demo -------------------------------------------------------------------------------------
+        self.rand_float: callable = lambda a, b: random.uniform(a, b)
 
-WIDTH, HEIGHT = 800, 600
-ACTOR_SIZE = 10
-NUM_ACTORS = 5000
-SEARCH_SIZE = 50
-WHITE = (255, 255, 255)
-BLUE = (0, 0, 255)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
+        self.create_objects()
 
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-clock = pygame.time.Clock()
+        self.cam: pygame.FRect = pygame.FRect(0, 0, 320, 180)  # Use pygame.FRect for the camera
 
-quadtree = Quadtree(pygame.FRect(0, 0, WIDTH, HEIGHT), 0)
-actors = []
+    def create_objects(self) -> None:
+        for _ in range(10000):
+            # Creating objects with pygame.FRect for position and size
+            rect: pygame.FRect = pygame.FRect(self.rand_float(0, self.fWidth), self.rand_float(0, self.fHeight),
+                                              self.rand_float(0.1, 100), self.rand_float(0.1, 100))
+            obj: SomeObjectWithArea = SomeObjectWithArea(rect, (0, 0), (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+            # Insert the object with the rect for position and size
+            self.treeObjects.insert(obj, obj.rect)
+            self.vecObjects.append(obj)
 
-for i in range(NUM_ACTORS):
-    x, y = random.randint(0, WIDTH - ACTOR_SIZE), random.randint(0, HEIGHT - ACTOR_SIZE)
-    rect = pygame.FRect(x, y, ACTOR_SIZE, ACTOR_SIZE)
-    actor = Actor(i, rect)
-    actors.append(actor)
-    quadtree.insert(actor)
+    def run(self) -> None:
+        running: bool = True
+        while running:
+            self.screen.fill((0, 0, 0))
+            start_time: float = time.time()
+            nObjectCount: int = 0
 
-search_rect = pygame.FRect(0, 0, SEARCH_SIZE, SEARCH_SIZE)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
-running = True
-while running:
-    screen.fill(WHITE)
-    
-    mouse_x, mouse_y = pygame.mouse.get_pos()
-    search_rect.topleft = (mouse_x - SEARCH_SIZE // 2, mouse_y - SEARCH_SIZE // 2)
-    
-    quadtree = Quadtree(pygame.FRect(0, 0, WIDTH, HEIGHT), 0)  # Rebuild Quadtree
-    for actor in actors:
-        actor.move()
-        quadtree.insert(actor)
-    
-    found_actors = quadtree.search(search_rect)
-    found_ids = {actor.id for actor in found_actors}
-    
-    for actor in actors:
-        color = RED if actor.id in found_ids else BLUE
-        pygame.draw.rect(screen, color, actor.rect)
-    
-    pygame.draw.rect(screen, GREEN, search_rect, 2)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            for actor in found_actors:
-                if quadtree._remove_actor(actor):
-                    actors.remove(actor)
-    
-    pygame.display.flip()
-    clock.tick(60)
+            # Pan the camera with arrow keys
+            keys: pygame.key.ScancodeWrapper = pygame.key.get_pressed()
+            if keys[pygame.K_UP]:
+                self.cam.y -= 10
+            if keys[pygame.K_DOWN]:
+                self.cam.y += 10
+            if keys[pygame.K_LEFT]:
+                self.cam.x -= 10
+            if keys[pygame.K_RIGHT]:
+                self.cam.x += 10
 
-pygame.quit()
+            # Clamp the camera within the game world
+            self.cam.clamp_ip(self.world_rect)
+
+            if pygame.key.get_just_pressed()[pygame.K_0]:
+                self.bUseQuadTree = not self.bUseQuadTree
+
+            if self.bUseQuadTree:
+                # QUAD TREE MODE
+                items_in_screen: List[SomeObjectWithArea] = self.treeObjects.search(self.cam)
+                for obj in items_in_screen:
+                    pygame.draw.rect(self.screen, obj.color, pygame.FRect(obj.rect.x - self.cam.x, obj.rect.y - self.cam.y, obj.rect.w, obj.rect.h))
+                    nObjectCount += 1
+            else:
+                # LINEAR SEARCH MODE
+                for obj in self.vecObjects:
+                    if self.cam.colliderect(pygame.FRect(obj.rect.x, obj.rect.y, obj.rect.w, obj.rect.h)):
+                        pygame.draw.rect(self.screen, obj.color, pygame.FRect(obj.rect.x - self.cam.x, obj.rect.y - self.cam.y, obj.rect.w, obj.rect.h))
+                        nObjectCount += 1
+
+            elapsed_time: float = time.time() - start_time
+            pygame.display.set_caption(f'{"Quad" if self.bUseQuadTree else "Linear"} {elapsed_time:.4f}s')
+
+            pygame.display.flip()
+            self.clock.tick(60)
+
+        pygame.quit()
+
+if __name__ == "__main__":
+    demo = Example_StaticQuadTree()
+    demo.run()

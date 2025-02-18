@@ -25,15 +25,15 @@ pygame.display.set_caption("Move the Rectangle and Grid")
 # Grid data representation
 world_map_grid_data = (
     "00000000000000000000"
+    "01000000000000000010"
     "00000000000000000000"
     "00000000001000000000"
-    "00000000010100000000"
     "00001011110100000000"
     "00001000000100000000"
     "00000000000100000000"
     "00000000000000000000"
     "00000000000000000000"
-    "00000000000000000000"
+    "01000000000000000010"
     "00000000000000000000"
 )
 
@@ -119,6 +119,15 @@ def ray_vs_rect(
         contact_normal[0].x, contact_normal[0].y = (1, 0) if ray_dir.x < 0 else (-1, 0)
     elif t_near.x < t_near.y:
         contact_normal[0].x, contact_normal[0].y = (0, 1) if ray_dir.y < 0 else (0, -1)
+    else:
+        if one_over_ray_dir_x < 0 and one_over_ray_dir_y < 0:
+            contact_normal[0].x, contact_normal[0].y = (1, 1)
+        elif one_over_ray_dir_x > 0 and one_over_ray_dir_y > 0:
+            contact_normal[0].x, contact_normal[0].y = (-1, -1)
+        elif one_over_ray_dir_x < 0 and one_over_ray_dir_y > 0:
+            contact_normal[0].x, contact_normal[0].y = (1, -1)
+        elif one_over_ray_dir_x > 0 and one_over_ray_dir_y < 0:
+            contact_normal[0].x, contact_normal[0].y = (-1, 1)
 
     return True
 

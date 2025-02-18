@@ -10,7 +10,7 @@ from typing import List, Tuple
 # Constants
 WIDTH: int = 640
 HEIGHT: int = 360
-PARTICLE_COUNT: int = 2000
+PARTICLE_COUNT: int = 10
 PARTICLE_RADIUS: int = 2
 MAX_VEL: int = 1
 
@@ -122,7 +122,9 @@ while running:
         
         if not paused:
             particle.move(pygame.FRect(0, 0, WIDTH, HEIGHT))
-        pygame.draw.circle(screen, particle.color, (int(particle.rect.x), int(particle.rect.y)), PARTICLE_RADIUS)
+        
+        # Draw as rectangle instead of circle
+        pygame.draw.rect(screen, particle.color, particle.rect)
     
     if use_quadtree and draw_quad_tree:
         draw_quad(quad, screen)

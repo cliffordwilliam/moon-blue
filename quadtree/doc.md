@@ -23,26 +23,20 @@ graph TD
 
 Sure! Let’s analyze and compare the number of collision checks needed in both the naïve approach and the quadtree-based approach.
 
-### **Naïve Approach (Brute Force)**
-
+### Naïve Approach (Brute Force)
 In the naïve approach, each particle is compared with every other particle. Given **N** particles, the total number of comparisons is:
 
-\[
-C\_{\text{naïve}} = \frac{N (N - 1)}{2}
-\]
+$$C_{\text{naive}} = \frac{N (N - 1)}{2}$$
 
 For example, if \( N = 10 \):
 
-\[
-C\_{\text{naïve}} = \frac{10 \times 9}{2} = 45 \text{ checks}
-\]
+$$C_{\text{naive}} = \frac{10 \times 9}{2} = 45 \text{ checks}$$
 
-This is **O(N²)** in complexity, which becomes computationally expensive as \( N \) increases.
+This is **O(N^2)** in complexity, which becomes computationally expensive as \( N \) increases.
 
 ---
 
-### **Quadtree Approach**
-
+### Quadtree Approach
 A **quadtree** divides the space into **4 equal quadrants** recursively until each quadrant contains at most **M** particles or a maximum depth is reached.
 
 1. **Insertion:** Each particle is placed into the smallest quadrant that contains it.
@@ -56,31 +50,24 @@ Let’s approximate the number of checks when using a quadtree:
 
 The **collision check complexity** can be approximated as:
 
-\[
-C\_{\text{quadtree}} = O(N \log N)
-\]
+$$C_{\text{quadtree}} = O(N \log N)$$
 
 For **N = 10**, assuming **depth = 2**, each region contains at most **M = 4** particles. In this case, we only need to check within these small regions rather than across all particles.
 
 Instead of **45 checks**, we now have:
 
-\[
-\approx M \times \text{number of regions} = 4 \times 4 = 16 \text{ checks}
-\]
+$$\approx M \times \text{number of regions} = 4 \times 4 = 16 \text{ checks}$$
 
 ---
 
-### **Comparison of Complexity**
-
+### Comparison of Complexity
 | Number of Particles \( N \) | Naïve Checks \( O(N^2) \) | Quadtree Checks \( O(N \log N) \) |
-| --------------------------- | ------------------------- | --------------------------------- |
-| 10                          | 45                        | ~16                               |
-| 100                         | 4,950                     | ~200                              |
-| 1,000                       | 499,500                   | ~3,000                            |
+|------------------|------------------|----------------------|
+| 10              | 45               | ~16                 |
+| 100             | 4,950            | ~200                |
+| 1,000           | 499,500          | ~3,000              |
 
 As \( N \) grows, the quadtree provides an **exponential reduction** in the number of collision checks, making it significantly more efficient.
-
-Let me know if you need further clarifications! 🚀
 
 ## 1. **Start with a Big Rectangle (Root Quad)**
 

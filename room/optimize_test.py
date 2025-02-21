@@ -73,7 +73,7 @@ class Particle:
         self.rect.x = x
         self.rect.y = y
 
-        self.max_run: float = 0.03  # Px / ms
+        self.max_run: float = 0.09  # Px / ms
         self.velocity: pygame.Vector2 = pygame.Vector2(0.0, 0.0)
         self.decay: float = 0.01
 
@@ -118,14 +118,14 @@ class Particle:
             other.direction_vertical = new_dirs[1]
 
             # Set cooldown to prevent instant rebouncing
-            self.bounce_cooldown = 300  # 200ms cooldown
-            other.bounce_cooldown = 300
+            self.bounce_cooldown = 400  # 200ms cooldown
+            other.bounce_cooldown = 400
 
     def draw(self, screen: pygame.Surface, camera: pygame.FRect):
         screen.blit(self.surf, (self.rect.x - camera.x, self.rect.y - camera.y))
 
 player = Player(16, 16)
-particles = [Particle(random.randint(64, width * 16 - 64), random.randint(64, height * 16 - 64)) for _ in range(PARTICLE_COUNT)]
+particles = [Particle(random.randint(112, width * 16 - 192), random.randint(112, height * 16 - 176)) for _ in range(PARTICLE_COUNT)]
 quad = quadtree_utils.QuadTree(pygame.FRect(0, 0, width * 16, height * 16))
 
 # Camera viewport

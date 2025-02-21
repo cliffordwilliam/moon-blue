@@ -1,6 +1,7 @@
 import pygame
 import raycast_utils
 import tilemap_utils
+import quadtree_utils
 import random
 
 # Constants
@@ -64,9 +65,8 @@ class Player:
 class Particle:
     def __init__(self, x, y):
         self.surf: pygame.Surface = pygame.Surface((7, 18))
-        self.default_color = "blue"
-        self.collision_color = "yellow"
-        self.surf.fill(self.default_color)  # Default color
+        self.colr = "blue"
+        self.surf.fill(self.colr)  # Default color
         self.rect: pygame.FRect = self.surf.get_frect()
         self.rect.x = x
         self.rect.y = y
@@ -78,13 +78,9 @@ class Particle:
         self.direction_horizontal = 1
         self.direction_vertical = 1
 
-    def update(self, dt, player_rect):
-        # Check for collision with player
-        if self.rect.colliderect(player_rect):
-            self.surf.fill(self.collision_color)
-        else:
-            self.surf.fill(self.default_color)
-        
+    def update(self, dt):
+        # Reset color to default before checking collisions
+        self.surf.fill(self.colr)
         # Update vel with dir
         self.velocity.x = raycast_utils.exp_decay(self.velocity.x, self.direction_horizontal * self.max_run, self.decay, dt)
         self.velocity.y = raycast_utils.exp_decay(self.velocity.y, self.direction_vertical * self.max_run, self.decay, dt)
@@ -92,8 +88,8 @@ class Particle:
         contact_normal = pygame.Vector2(0.0, 0.0)
         contact_point = pygame.Vector2(0.0, 0.0)
         raycast_utils.resolve_vel_against_solid_tiles(self.rect, dt, self.velocity, tileheight, width, height, world_map_grid_data, contact_point, contact_normal)
-        self.direction_horizontal = contact_normal.x if contact_normal.x != 0 else self.direction_horizontal
-        self.direction_vertical = contact_normal.y if contact_normal.y != 0 else self.direction_vertical
+        self.direction_horizontal = contact_normal.x or self.direction_horizontal
+        self.direction_vertical = contact_normal.y or self.direction_vertical
         # Update pos
         self.rect.x += self.velocity.x * dt
         self.rect.y += self.velocity.y * dt
@@ -105,42 +101,55 @@ class Particle:
 
 player = Player(16, 16)
 particles = [Particle(random.randint(64, width * 16 - 64), random.randint(64, height * 16 - 64)) for _ in range(PARTICLE_COUNT)]
+quad = quadtree_utils.QuadTree(pygame.FRect(0, 0, width * 16, height * 16))
 
 # Camera viewport
 camera = pygame.FRect(0, 0, WIDTH, HEIGHT)
+use_quadtree = True
 
 # Main loop
 running = True
 clock = pygame.time.Clock()
 while running:
     dt = clock.tick(60)  # Cap at 60 FPS
-    pygame.display.set_caption(f"Iteration Time: {dt} ms")
+    pygame.display.set_caption(f"Iteration Time: {dt} ms | Quadtree: {'ON' if use_quadtree else 'OFF'}")
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+            use_quadtree = not use_quadtree
     
     # Get key states
     keys = pygame.key.get_pressed()
     player.update(keys, dt)
+    quad.clear()
     for particle in particles:
-        particle.update(dt, player.rect)
+        quad.insert(particle)  # you want to put the numerous things that others wanna look for
+        # iter per particle to find other particle
+        nearby = quad.search(particle.rect) if use_quadtree else [p for p in particles if p.rect.colliderect(particle.rect) and p != particle]
+        for other in nearby:
+            if other != particle:
+                particle.direction_vertical, other.direction_vertical = other.direction_vertical, particle.direction_vertical
+                particle.direction_horizontal, other.direction_horizontal = other.direction_horizontal, particle.direction_horizontal
     
-    # Update camera offset based on player position
+    # use player rect to find nearby particles
+    player.surf.fill("red")
+    nearby = quad.search(player.rect) if use_quadtree else [p for p in particles if p.rect.colliderect(player.rect)]
+    if len(nearby):
+        player.surf.fill("yellow")
+
     camera.center = player.rect.center
     camera.clamp_ip(room_limit_rect)
     
-    # Blit the background image with offset
     screen.fill("black")
     screen.blit(background, (-camera.x, -camera.y))
-    screen.blit(pre_rendered_bg, (-camera.x, -camera.y))  # Draw the pre-rendered grid world map
-
-    # Draw player with camera offset
+    screen.blit(pre_rendered_bg, (-camera.x, -camera.y))
     player.draw(screen, camera)
-    for particle in particles:
-        particle.draw(screen, camera)
-    
-    # Update the display
-    pygame.display.update()
 
-# Quit Pygame
+    # use cam rect to find nearby particle to draw and update them
+    nearby = quad.search(camera) if use_quadtree else particles
+    for particle in nearby:
+        particle.update(dt)
+        particle.draw(screen, camera)
+    pygame.display.update()
 pygame.quit()

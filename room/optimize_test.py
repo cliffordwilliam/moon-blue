@@ -1,3 +1,5 @@
+# q - toggle quad on or off
+
 import pygame
 import raycast_utils
 import tilemap_utils

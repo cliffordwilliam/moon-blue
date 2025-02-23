@@ -20,25 +20,25 @@ class Room:
         # so make sure to have a dict that has key stage name then value dict that holds class mem ref or json or whatever to be loaded
         self.base_dir = base_dir
 
-        self.spritesheet = pygame.image.load(
-            path.join(self.base_dir, "pngs", "forest_of_illusion_tile_sheet.png")
-        ).convert_alpha()
-
-        # read json
+        # read json, this thing knows when stage change, so it will load only the needed anim json, or enemy png, that is tied to this stage
         data = tilemap_routine(
             path.join(self.base_dir, "jsons", tile_json_path),
-            self.spritesheet,
+            base_dir,
+            current_stage="",
+            spritesheet=None,
         )
         # set my props with json
         self.width = data["width"]
         self.height = data["height"]
         self.tileheight = data["tileheight"]
-        self.room_map_grid_data_solid = data["room_map_grid_data_solid"]
-        self.room_map_grid_data_thin = data["room_map_grid_data_thin"]
+        self.collision_layer = data["collision_layer"]
         self.pre_rendered_bg = data["pre_rendered_bg"]
         self.players = data["players"]
         self.enemies = data["enemies"]
         self.raw_doors = data["doors"]
+        # spritesheet name is stage name, 1 stage 1 spritesheet
+        self.current_stage = data["tile_sheet_name"]
+        self.spritesheet = data["spritesheet"]
         self.rect = pygame.FRect(0, 0, self.width * TILE_SIZE, self.height * TILE_SIZE)
 
         # player
@@ -52,6 +52,7 @@ class Room:
         # todo: next time dedicate 1 list and 1 collision layer per enemy
         self.enemy_type_1_list: list[EnemyType1] = []
         for enemy in self.enemies:
+            # todo: make a new prop for me to bind enemy names to their json, the one that fills the json val is the tilemap routine
             # todo: use enemy name as key to grab which one to spawn, for now hardcode the 1 enemy that i have
             self.enemy_type_1_list.append(EnemyType1(enemy["x"], enemy["y"], self))
 
@@ -84,18 +85,22 @@ class Room:
         # read new json
         data = tilemap_routine(
             path.join(self.base_dir, "jsons", tile_json_path),
+            self.base_dir,
+            self.current_stage,
             self.spritesheet,
         )
         # update my props with new json
         self.width = data["width"]
         self.height = data["height"]
         self.tileheight = data["tileheight"]
-        self.room_map_grid_data_solid = data["room_map_grid_data_solid"]
-        self.room_map_grid_data_thin = data["room_map_grid_data_thin"]
+        self.collision_layer = data["collision_layer"]
         self.pre_rendered_bg = data["pre_rendered_bg"]
         self.players = data["players"]
         self.enemies = data["enemies"]
         self.raw_doors = data["doors"]
+        # spritesheet name is stage name, 1 stage 1 spritesheet
+        self.current_stage = data["tile_sheet_name"]
+        self.spritesheet = data["spritesheet"]
         self.rect = pygame.FRect(0, 0, self.width * TILE_SIZE, self.height * TILE_SIZE)
 
         # player
@@ -146,8 +151,7 @@ class Room:
 
     def update(self, dt: int, screen: pygame.Surface):
         # Get key states
-        keys = pygame.key.get_pressed()
-        self.player.update(keys, dt)
+        self.player.update(dt)
 
         # update door collision layer
         # no need to update door collision layer since doors are not moving

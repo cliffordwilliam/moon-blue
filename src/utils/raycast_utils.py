@@ -11,6 +11,7 @@ from math import exp
 # For player to query collision (world map is just string, there are no boxes, this is the only solid box)
 one_tile_rect = pygame.FRect(0, 0, 16, 16)
 
+
 def determine_movement_direction(velocity_vector: pygame.Vector2) -> tuple[int, int]:
     x, y = velocity_vector.x, velocity_vector.y
 
@@ -18,6 +19,7 @@ def determine_movement_direction(velocity_vector: pygame.Vector2) -> tuple[int, 
     direction_y = 0 if abs(y) <= 0.01 else (1 if y > 0 else -1)
 
     return direction_x, direction_y
+
 
 def ray_vs_rect(
     ray_origin: pygame.Vector2,
@@ -104,6 +106,7 @@ def ray_vs_rect(
 
     return True
 
+
 def dynamic_rect_vs_rect(
     input_velocity: pygame.Vector2,
     collider_rect: pygame.FRect,
@@ -141,7 +144,15 @@ def dynamic_rect_vs_rect(
     else:
         return False
 
-def get_tile_and_position(world_tu_x: int, world_tu_y: int, width: int, height: int, world_map_grid_data: list[str], tileheight: int) -> tuple[str, tuple[int, int]]:
+
+def get_tile_and_position(
+    world_tu_x: int,
+    world_tu_y: int,
+    width: int,
+    height: int,
+    world_map_grid_data: list[str],
+    tileheight: int,
+) -> tuple[str, tuple[int, int]]:
     """
     Returns the tile type and its pixel position (x, y).
     Returns ("-1", (-1, -1)) if out of bounds.
@@ -152,6 +163,7 @@ def get_tile_and_position(world_tu_x: int, world_tu_y: int, width: int, height: 
     else:
         return "-1", (-1, -1)  # Out of bounds
 
+
 def compute_range(start: int, length: int, direction: int) -> range:
     if direction == 1:  # Moving forward or no movement
         return range(start, start + length)
@@ -160,10 +172,23 @@ def compute_range(start: int, length: int, direction: int) -> range:
     else:  # No movement
         return range(start, start + length)
 
-def resolve_vel_against_solid_tiles(given_rect: pygame.FRect, dt: int, velocity: pygame.Vector2, tileheight: pygame.FRect, width: int, height: int, world_map_grid_data: list[str], contact_point: pygame.Vector2, contact_normal: pygame.Vector2) -> pygame.Vector2:
+
+def resolve_vel_against_solid_tiles(
+    given_rect: pygame.FRect,
+    dt: int,
+    velocity: pygame.Vector2,
+    tileheight: pygame.FRect,
+    width: int,
+    height: int,
+    world_map_grid_data: list[str],
+    contact_point: pygame.Vector2,
+    contact_normal: pygame.Vector2,
+):
     """
-    Return resolved velocity against solid tiles.
+    Vel is immutable, just pass it in and after you r done calling this the val updates! This thing returns what you hit as well, tile type in str
     """
+
+    tile_you_hit = ""
 
     # Compute the future position based on velocity and delta time
     distance_vector = velocity * dt
@@ -173,8 +198,14 @@ def resolve_vel_against_solid_tiles(given_rect: pygame.FRect, dt: int, velocity:
     combined_rect = given_rect.union(future_rect)
 
     # Truncate the bounds to tile coordinates
-    l_tu, t_tu = int(combined_rect.left // tileheight), int(combined_rect.top // tileheight)
-    r_tu, b_tu = int(combined_rect.right // tileheight), int(combined_rect.bottom // tileheight)
+    l_tu, t_tu = (
+        int(combined_rect.left // tileheight),
+        int(combined_rect.top // tileheight),
+    )
+    r_tu, b_tu = (
+        int(combined_rect.right // tileheight),
+        int(combined_rect.bottom // tileheight),
+    )
 
     # Collect solid tiles in the combined rect
     combined_rect_width_ru = r_tu - l_tu + 1
@@ -205,6 +236,9 @@ def resolve_vel_against_solid_tiles(given_rect: pygame.FRect, dt: int, velocity:
             if tile == "0" or tile == "-1":
                 continue
 
+            # update what u hit
+            tile_you_hit = tile
+
             # Prepare query tile pos
             one_tile_rect.x = position[0]
             one_tile_rect.y = position[1]
@@ -223,6 +257,9 @@ def resolve_vel_against_solid_tiles(given_rect: pygame.FRect, dt: int, velocity:
                 # RESOLVE VEL
                 velocity.x += contact_normal.x * abs(velocity.x) * (1 - t_hit_near[0])
                 velocity.y += contact_normal.y * abs(velocity.y) * (1 - t_hit_near[0])
+
+    return tile_you_hit
+
 
 def exp_decay(a: float, b: float, decay: float, dt: int) -> float:
     return b + (a - b) * exp(-decay * dt)

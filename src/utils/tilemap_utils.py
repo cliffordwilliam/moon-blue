@@ -1,8 +1,16 @@
 import json
 import pygame
+from os import path
+
+from const import SPRITESHEET_WIDTH
+from utils.remove_file_extension import remove_file_extension
 
 
-def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
+def tilemap_routine(
+    tile_json_path: str, base_dir: str, current_stage: str, spritesheet: pygame.Surface
+):
+    # important! spritesheet must have 32 tiles per row or 512 x 512 px in size, this is by design for saving mem sake
+
     # prepare output
     tileheight = 0
     width = 0
@@ -12,6 +20,7 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
     players = []
     enemies = []
     doors = []
+    tile_sheet_name = ""
 
     # read json
     with open(tile_json_path, "r") as file:
@@ -19,18 +28,25 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
         tileheight = data["tileheight"]
         width = data["width"]
         height = data["height"]
+        tile_sheet_name = remove_file_extension(data["tilesets"][0]["source"])
+
+    # if this json data has diff tile sheet, then we are entering a new stage room
+    if current_stage != tile_sheet_name:
+        print("switch stage!", current_stage, tile_sheet_name)
+        # load new stage image, overwrite passed in spritesheet with new one
+        spritesheet = pygame.image.load(
+            path.join(base_dir, "pngs", f"{tile_sheet_name}.png")
+        ).convert_alpha()
 
     # prepare pre rendered bg paper
     pre_rendered_bg: pygame.Surface = pygame.Surface(
         (width * tileheight, height * tileheight), pygame.SRCALPHA
     )
 
-    # spritesheet must have 32 tiles per row, 512 px in size
-    spritesheet_width = 32
-
     # iter json
     for index, layer in enumerate(data["layers"]):
-        # collect players (in a room there are finite possible pos a player starts in, left door, right door, etc...)
+        # collect player positions (in a room there are finite possible pos a player starts in, left door, right door, etc...)
+        # this is supposed to be "PlayerPositions", "Player" name is misleading but whatever la too lazy to change it
         if layer["name"] == "Player":
             for player in layer["objects"]:
                 players.append(player)
@@ -39,12 +55,11 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
             for enemy in layer["objects"]:
                 enemies.append(enemy)
         # collect doors
-        # todo: create new algo to instead create a string world map for doors just like solid and thin
-        # todo: but if not then just treat doors like enemies its the same thing anyways
         if layer["name"] == "Doors":
             for door in layer["objects"]:
                 doors.append(door)
         # todo: collect item drop, save station, cutscene toggler, etc...
+
         # iter bg
         if not layer["type"] == "tilelayer":
             continue
@@ -62,22 +77,21 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
             dest_x = x * tileheight
             dest_y = y * tileheight
             # get spritesheet region source position
-            src_x = (
-                (tile_id % spritesheet_width) * tileheight
-            )  # spritesheet must have 32 tiles per row, 512 px in size, for mem sake
-            src_y = (tile_id // spritesheet_width) * tileheight
+            src_x = (tile_id % SPRITESHEET_WIDTH) * tileheight
+            src_y = (tile_id // SPRITESHEET_WIDTH) * tileheight
+            # start painting the pre rendered bg
             pre_rendered_bg.blit(
                 spritesheet, (dest_x, dest_y), (src_x, src_y, tileheight, tileheight)
             )
 
-    # get solid, thin and other static collidable / hitable things like door
-    room_map_grid_data_solid = "".join(
-        "1" if data["layers"][solid_layer_index]["data"][y * width + x] != 0 else "0"
-        for y in range(height)
-        for x in range(width)
-    )
-    room_map_grid_data_thin = "".join(
-        "1" if data["layers"][thin_layer_index]["data"][y * width + x] != 0 else "0"
+    # get solid, thin and other static collidable / hitable things THAT DOES NOT HAVE DATA (like sticky floor, or slippery floor, but NOT ITEMS or DOORS)
+    # cuz these are to hold id only, like oh im on id 2, that means its thin, then they do whatever they want with that info, like if its on id 2 and press jump we drop off of it
+    collision_layer = "".join(
+        "1"
+        if data["layers"][solid_layer_index]["data"][y * width + x] != 0
+        else "2"
+        if data["layers"][thin_layer_index]["data"][y * width + x] != 0
+        else "0"
         for y in range(height)
         for x in range(width)
     )
@@ -86,10 +100,11 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
         "width": width,
         "height": height,
         "tileheight": tileheight,
-        "room_map_grid_data_solid": room_map_grid_data_solid,
-        "room_map_grid_data_thin": room_map_grid_data_thin,
+        "collision_layer": collision_layer,
         "pre_rendered_bg": pre_rendered_bg,
         "players": players,
         "enemies": enemies,
         "doors": doors,
+        "spritesheet": spritesheet,
+        "tile_sheet_name": tile_sheet_name,
     }

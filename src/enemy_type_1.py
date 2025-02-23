@@ -47,7 +47,7 @@ class EnemyType1:
             self.room.tileheight,
             self.room.width,
             self.room.height,
-            self.room.room_map_grid_data_solid,
+            self.room.collision_layer,
             contact_point,
             contact_normal,
         )

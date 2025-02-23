@@ -23,13 +23,12 @@ room = Room(base_dir, "test_room.json")
 
 
 def main():
-    use_quadtree = True
     # Game Loop
     running = True
     while running:
         dt = clock.tick(60)  # Cap at 60 FPS
         pygame.display.set_caption(
-            f"Iteration Time: {dt} ms | Quadtree: {'ON' if use_quadtree else 'OFF'}"
+            f"Iteration Time: {dt} ms | Quadtree: {'ON' if room.use_quadtree else 'OFF'}"
         )
         # Handle events
         for event in pygame.event.get():

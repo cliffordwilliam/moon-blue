@@ -11,6 +11,7 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
     thin_layer_index = 0
     players = []
     enemies = []
+    doors = []
 
     # read json
     with open(tile_json_path, "r") as file:
@@ -37,6 +38,12 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
         if layer["name"] == "Enemies":
             for enemy in layer["objects"]:
                 enemies.append(enemy)
+        # collect doors
+        # todo: create new algo to instead create a string world map for doors just like solid and thin
+        # todo: but if not then just treat doors like enemies its the same thing anyways
+        if layer["name"] == "Doors":
+            for door in layer["objects"]:
+                doors.append(door)
         # todo: collect item drop, save station, cutscene toggler, etc...
         # iter bg
         if not layer["type"] == "tilelayer":
@@ -84,4 +91,5 @@ def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
         "pre_rendered_bg": pre_rendered_bg,
         "players": players,
         "enemies": enemies,
+        "doors": doors,
     }

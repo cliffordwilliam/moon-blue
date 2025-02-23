@@ -1,4 +1,5 @@
 import pygame
+from const import FPS, HEIGHT, TILE_SIZE, WIDTH
 from enemy_type_1 import EnemyType1
 from player import Player
 from room import Room
@@ -15,18 +16,13 @@ if getattr(sys, "frozen", False):
 # Initialize Pygame
 pygame.init()
 
-# Constants
-WIDTH, HEIGHT = 320, 180
-FPS = 60
-TILE_SIZE = 16
-
 # Initialize the screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED)
 clock = pygame.time.Clock()
 
 # Get first room
 # todo: move player and enemies to room, make 1 room class per stages, each room will load its stage data once (enemy json, interactive json, etc)
-room = Room(base_dir, "test_room.json", "forest_of_illusion_tile_sheet.png")
+room = Room(base_dir, "test_room.json")
 
 # hard code just get player 1st pos
 # todo: loop over room to find which pos to put player in (from door signal up on room switch)
@@ -40,7 +36,9 @@ for enemy in room.enemies:
     particles.append(EnemyType1(enemy["x"], enemy["y"], room))
 
 # enemy type 1 collision layer
-quad = quadtree_utils.QuadTree(pygame.FRect(0, 0, room.width * 16, room.height * 16))
+quad = quadtree_utils.QuadTree(
+    pygame.FRect(0, 0, room.width * TILE_SIZE, room.height * TILE_SIZE)
+)
 
 # Camera viewport
 camera = pygame.FRect(0, 0, WIDTH, HEIGHT)
@@ -59,59 +57,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_q:
-                use_quadtree = not use_quadtree
+            # room event
+            room.event(event)
 
-        # Get key states
-        keys = pygame.key.get_pressed()
-        player.update(keys, dt)
-
-        # update enemy type 1 collision layer
-        quad.clear()
-        for particle in particles:
-            quad.insert(particle)
-
-        # handle enemy type 1 bouncing off of each other
-        for particle in particles:
-            # reset bounce color
-            particle.surf.fill(particle.colr)
-            nearby = (
-                quad.search(particle.rect)
-                if use_quadtree
-                else [
-                    p
-                    for p in particles
-                    if p.rect.colliderect(particle.rect) and p != particle
-                ]
-            )
-            for other in nearby:
-                if other != particle:
-                    particle.bounce_with(other)
-
-        # use player rect to find nearby particles
-        player.surf.fill("red")
-        nearby = (
-            quad.search(player.rect)
-            if use_quadtree
-            else [p for p in particles if p.rect.colliderect(player.rect)]
-        )
-        if len(nearby):
-            player.surf.fill("yellow")
-
-        camera.center = player.rect.center
-        camera.clamp_ip(room.rect)
-
-        # Draw
-        screen.fill("black")
-        # todo: draw the parallax stuff here
-        screen.blit(room.pre_rendered_bg, (-camera.x, -camera.y))
-        player.draw(screen, camera)
-
-        # use cam rect to find nearby particle to draw and update them
-        nearby = quad.search(camera) if use_quadtree else particles
-        for particle in nearby:
-            particle.update(dt)
-            particle.draw(screen, camera)
+        # room update
+        room.update(dt, screen)
 
         # Update the screen
         pygame.display.update()

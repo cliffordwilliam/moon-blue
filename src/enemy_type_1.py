@@ -1,12 +1,12 @@
 import random
 import pygame
 
-from room import Room
+# from room import Room
 from utils import raycast_utils
 
 
 class EnemyType1:
-    def __init__(self, x, y, room: Room):
+    def __init__(self, x, y, room):
         # enemy type 1 needs room ref, for move and slide and pos clamping within room limit
         self.room = room
         self.surf: pygame.Surface = pygame.Surface((7, 18))

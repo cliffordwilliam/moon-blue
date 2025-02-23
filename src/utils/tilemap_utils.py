@@ -2,7 +2,7 @@ import json
 import pygame
 
 
-def tilemap_routine(tile_json_path: str, tile_png_path: str):
+def tilemap_routine(tile_json_path: str, spritesheet: pygame.Surface):
     # prepare output
     tileheight = 0
     width = 0
@@ -26,8 +26,6 @@ def tilemap_routine(tile_json_path: str, tile_png_path: str):
 
     # spritesheet must have 32 tiles per row, 512 px in size
     spritesheet_width = 32
-    # load this room sprite sheet
-    spritesheet = pygame.image.load(tile_png_path).convert_alpha()
 
     # iter json
     for index, layer in enumerate(data["layers"]):

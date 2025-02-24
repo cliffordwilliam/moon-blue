@@ -2,17 +2,18 @@ import random
 import pygame
 
 # from room import Room
+from nodes.animator import Animator
 from utils import raycast_utils
 
 
-class EnemyType1:
-    def __init__(self, x, y, room):
+class BlueBat:
+    def __init__(self, x, y, room, png, json, enemy_collision_layer):
+        # id for collision layer search, so others know what this is
+        self.type = "enemy"
         # enemy type 1 needs room ref, for move and slide and pos clamping within room limit
         self.room = room
-        self.surf: pygame.Surface = pygame.Surface((7, 18))
-        self.colr = "blue"
-        self.surf.fill(self.colr)  # Default color
-        self.rect: pygame.FRect = self.surf.get_frect()
+        self.surf: pygame.Surface = png
+        self.rect: pygame.FRect = pygame.FRect(0, 0, 8, 8)
         # set pos is by rect bottom left
         self.rect.x = x
         self.rect.y = y - self.rect.h
@@ -21,10 +22,15 @@ class EnemyType1:
         self.velocity: pygame.Vector2 = pygame.Vector2(0.0, 0.0)
         self.decay: float = 0.01
 
-        self.direction_horizontal = 1
-        self.direction_vertical = 1
+        self.direction_horizontal = random.choice([1, -1])
+        self.direction_vertical = random.choice([1, -1])
 
         self.bounce_cooldown = 0  # Cooldown timer in ms
+
+        self.enemy_collision_layer = enemy_collision_layer
+
+        # Initialize the animator
+        self.animator = Animator(png, json)
 
     def update(self, dt):
         # Reduce cooldown timer
@@ -59,11 +65,20 @@ class EnemyType1:
         # Clamp in screen rect
         self.rect.clamp_ip(self.room.rect)
 
-    def bounce_with(self, other: "EnemyType1"):
+        # handle me bouncing off of each other
+        nearby = self.enemy_collision_layer.search(self.rect)
+        for other in nearby:
+            if other != self:
+                if other.__class__.__name__ == self.__class__.__name__:
+                    self.bounce_with(other)
+
+        # Update animation
+        self.animator.update(dt)
+
+    def bounce_with(self, other: "BlueBat"):
         """Handles bouncing between my frens"""
         # Reset color to default before checking collisions
         if self.bounce_cooldown <= 0 and other.bounce_cooldown <= 0:
-            self.surf.fill("green")
             # Randomize new directions ensuring they are different
             new_dirs = [-1, 1]
             random.shuffle(new_dirs)  # Shuffle to make them unique
@@ -80,4 +95,7 @@ class EnemyType1:
             other.bounce_cooldown = 400
 
     def draw(self, screen: pygame.Surface, camera: pygame.FRect):
-        screen.blit(self.surf, (self.rect.x - camera.x, self.rect.y - camera.y))
+        frame_rect = self.animator.get_current_frame()
+        screen.blit(
+            self.surf, (self.rect.x - camera.x, self.rect.y - camera.y), frame_rect
+        )

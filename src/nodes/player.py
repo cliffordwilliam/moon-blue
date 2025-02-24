@@ -5,7 +5,7 @@ from utils import raycast_utils
 
 
 class Player:
-    def __init__(self, x, y, room):
+    def __init__(self, x, y, room, enemy_collision_layer, door_collision_layer):
         # player needs room ref, for move and slide and pos clamping within room limit
         self.room = room
         self.surf: pygame.Surface = pygame.Surface((7, 18))
@@ -19,6 +19,9 @@ class Player:
         self.velocity: pygame.Vector2 = pygame.Vector2(0.0, 0.0)
         self.decay: float = 0.01
         self.floor = ""
+
+        self.enemy_collision_layer = enemy_collision_layer
+        self.door_collision_layer = door_collision_layer
 
     def update(self, dt):
         pressed = pygame.key.get_pressed()
@@ -46,6 +49,7 @@ class Player:
             self.room.collision_layer,
             contact_point,
             contact_normal,
+            is_player=True,
         )
         if contact_normal.y == -1:
             self.floor = tile_you_hit
@@ -59,6 +63,19 @@ class Player:
         if self.floor == "2":
             if pressed[pygame.K_DOWN] and just_pressed[pygame.K_SPACE]:
                 self.rect.y += 1
+
+        # handle player hitting enemy type 1
+        self.surf.fill("red")
+        nearby_enemies = self.enemy_collision_layer.search(self.rect)
+        if len(nearby_enemies):
+            self.surf.fill("yellow")
+
+        # handle player hitting door
+        nearby_doors = self.door_collision_layer.search(self.rect)
+        if len(nearby_doors):
+            self.room.on_player_hit_door_change_room(
+                nearby_doors[0].target_room_json_name, nearby_doors[0].name
+            )
 
     def draw(self, screen: pygame.Surface, camera: pygame.FRect):
         screen.blit(self.surf, (self.rect.x - camera.x, self.rect.y - camera.y))

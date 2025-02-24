@@ -183,6 +183,7 @@ def resolve_vel_against_solid_tiles(
     world_map_grid_data: list[str],
     contact_point: pygame.Vector2,
     contact_normal: pygame.Vector2,
+    is_player: bool = False,
 ):
     """
     Vel is immutable, just pass it in and after you r done calling this the val updates! This thing returns what you hit as well, tile type in str
@@ -254,6 +255,10 @@ def resolve_vel_against_solid_tiles(
                 dt,
             )
             if hit:
+                # PLAYER ONLY do not resolve vel if moving upward and hitting thin
+                if is_player and tile_you_hit == "2" and contact_normal.y == 1:
+                    return tile_you_hit
+
                 # RESOLVE VEL
                 velocity.x += contact_normal.x * abs(velocity.x) * (1 - t_hit_near[0])
                 velocity.y += contact_normal.y * abs(velocity.y) * (1 - t_hit_near[0])

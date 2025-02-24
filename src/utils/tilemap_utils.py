@@ -9,6 +9,8 @@ from utils.remove_file_extension import remove_file_extension
 def tilemap_routine(
     tile_json_path: str, base_dir: str, current_stage: str, spritesheet: pygame.Surface
 ):
+    """i give u list of obj like enemies, players positions, doors, str collision map and pre rendered bg"""
+
     # important! spritesheet must have 32 tiles per row or 512 x 512 px in size, this is by design for saving mem sake
 
     # prepare output
@@ -21,6 +23,7 @@ def tilemap_routine(
     enemies = []
     doors = []
     tile_sheet_name = ""
+    old_new_spritesheet = {"old": "", "new": ""}
 
     # read json
     with open(tile_json_path, "r") as file:
@@ -30,13 +33,16 @@ def tilemap_routine(
         height = data["height"]
         tile_sheet_name = remove_file_extension(data["tilesets"][0]["source"])
 
-    # if this json data has diff tile sheet, then we are entering a new stage room
+    # if this json data has diff tile sheet, then we are entering a new stage room, switch stage!
     if current_stage != tile_sheet_name:
-        print("switch stage!", current_stage, tile_sheet_name)
         # load new stage image, overwrite passed in spritesheet with new one
         spritesheet = pygame.image.load(
             path.join(base_dir, "pngs", f"{tile_sheet_name}.png")
         ).convert_alpha()
+
+    # tell user what the old and new one is, so they can tell if there is stage change
+    old_new_spritesheet["old"] = current_stage
+    old_new_spritesheet["new"] = tile_sheet_name
 
     # prepare pre rendered bg paper
     pre_rendered_bg: pygame.Surface = pygame.Surface(
@@ -60,13 +66,14 @@ def tilemap_routine(
                 doors.append(door)
         # todo: collect item drop, save station, cutscene toggler, etc...
 
-        # iter bg
+        # find where solid and thin collision layer ones index are, this is for me to make the str collision map
         if not layer["type"] == "tilelayer":
             continue
         if layer["name"] == "Solid":
             solid_layer_index = index
         if layer["name"] == "Thin":
             thin_layer_index = index
+        # draw pre rendered bg
         for index, tile_id in enumerate(layer["data"]):
             tile_id -= 1
             if tile_id == -1:
@@ -76,7 +83,7 @@ def tilemap_routine(
             y = index // width
             dest_x = x * tileheight
             dest_y = y * tileheight
-            # get spritesheet region source position
+            # get spritesheet region position
             src_x = (tile_id % SPRITESHEET_WIDTH) * tileheight
             src_y = (tile_id // SPRITESHEET_WIDTH) * tileheight
             # start painting the pre rendered bg
@@ -107,4 +114,5 @@ def tilemap_routine(
         "doors": doors,
         "spritesheet": spritesheet,
         "tile_sheet_name": tile_sheet_name,
+        "old_new_spritesheet": old_new_spritesheet,
     }
